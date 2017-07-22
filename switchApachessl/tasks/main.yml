@@ -1,0 +1,6 @@
+---
+- include: debian.yml
+  when: ansible_os_family == 'Debian'
+- include: centOS.yml
+  when: ansible_distribution == 'CentOS' or ansible_distribution == 'Red Hat Enterprise Linux'
+

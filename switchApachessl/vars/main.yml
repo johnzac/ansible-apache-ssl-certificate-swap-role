@@ -1,0 +1,26 @@
+---
+# vars file for Apacheswitchssl
+vhostParams:
+    - ServerName
+    - DocumentRoot
+    - SSLCertificateChainFile
+    - SSLCertificateFile
+    - SSLCertificateKeyFile
+
+centOSConfigFiles:
+    - /etc/httpd/conf/httpd.conf
+
+debianOSConfigFiles:
+    - /etc/apache2/apache2.conf
+
+centOsServerRoot: "/etc/httpd/"
+
+debianOsServerRoot: "/etc/apache2/"
+
+filter: 1 
+SSLCertificateFile: /your/absolute/path
+SSLCertFile: /your/absolute/path
+SSLPrivateKeyFile: /your/absolute/path
+SSLCertificateChainFile: /your/absolute/path
+ServerName:
+    - "www.example.com"

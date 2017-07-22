@@ -1,0 +1,82 @@
+---
+- block:
+    # tasks file for gatherApacheVHostData
+    - name: installing
+      yum: name="libselinux-python" state="present"
+      become: true    
+    - name: copying template to remote host
+      template: src="vHostsParser.sh.jinja2" dest="~/vHostsParser.sh" mode="0544"
+    
+    - name: Gathering Include Files
+      shell: "cat {{ item }} | grep -v '#' | grep -P '^ *(Include|IncludeOptional)' | awk '{print $2}' | sed 's;/$;/\\*;g'"
+      with_items: "{{ centOSConfigFiles }}"
+      register: centIncludeFiles
+    
+    - name: Gathering virtualHosts information from main config file
+      shell: "cat {{ item }} | ~/vHostsParser.sh"
+      with_items: "{{ centOSConfigFiles }}"
+      register: centvHosts1
+    
+    - name: executing the script on the remote macines
+      shell: "cat {{ centOsServerRoot +  item }} | ~/vHostsParser.sh"
+      with_items: "{{ centIncludeFiles.results  | map(attribute='stdout_lines') | list }}"
+      register: centvHosts2
+    
+    - name: Combining Vhosts information cent
+      set_fact:
+          result_cent: "{{ (centvHosts2.results  | map(attribute='stdout_lines') | list)  +  (centvHosts1.results  | map(attribute='stdout_lines') | list) }}"
+    - name: loggging vhosts info
+      debug:
+          msg: "lt_cent"   
+    - name: Copying SSL certificate on remote host
+      copy:
+          dest:  "{{ item | from_json | json_query('SSLCertificateFile') }}"
+          src: "{{ SSLCertFile }}" 
+          backup: yes
+      become: true
+      with_items: "{{ result_cent }}"
+      register: copylogsslcert
+      when: ((item | from_json | json_query('ServerName') in ServerName) and (item | from_json | json_query('SSLCertificateFile'))  or (filter == 0))
+    
+    - name: Appending to log facts
+      set_fact:
+          result_private: "{{ copylogsslcert.results }}"
+    - name: Copying private key file
+      copy:
+        dest:  "{{ item | from_json | json_query('SSLCertificateKeyFile') }}"
+        src: "{{ SSLPrivateKeyFile }}"
+        backup: yes
+      become: true
+      with_items: "{{ result_cent }}"
+      register: copylogsslkey
+      when: ((item | from_json | json_query('ServerName') in ServerName) and (item | from_json | json_query('SSLCertificateKeyFile')) or (filter == 0))
+    
+    - name: Appending to log facts
+      set_fact:
+          result_private: "{{ result_private + copylogsslkey.results }}"
+    - name: Copying Certificate Chain file
+      copy:
+        dest:  "{{ item | from_json | json_query('SSLCertificateChainFile') }}"
+        src: "{{ SSLCertificateChainFile }}"
+        backup: yes
+      become: true
+      with_items: "{{ result_cent }}"
+      register: copylogsslkey
+      when: ((item | from_json | json_query('ServerName') in ServerName) and (item | from_json | json_query('SSLCertificateChainFile')) or (filter == 0))
+
+    - name: Appending to log facts
+      set_fact:
+            result_private: "{{ result_private + copylogsslkey.results }}"
+
+    - name: Restarting Apache
+      become: true
+      service: name=httpd state=restarted
+    
+  rescue:
+    - name: "Checking apache status"
+      debug:
+        msg: "Reverting all changes made"
+      changed_when: 1
+      notify: "Revert all changes CentOS"
+    - name: make sure
+      meta: flush_handlers    

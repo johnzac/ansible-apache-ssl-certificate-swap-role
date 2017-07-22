@@ -1,0 +1,78 @@
+---
+- block:
+    # tasks file for gatherApacheVHostData
+    
+    - name: copying template to remote host
+      template: src="vHostsParser.sh.jinja2" dest="~/vHostsParser.sh" mode="0544"
+    
+    - name: Gathering Include Files
+      shell: "cat {{ item }} | grep -v '#' | grep -P '^ *(Include|IncludeOptional)' | awk '{print $2}' | sed 's;/$;/\\*;g'"
+      with_items: "{{ debianOSConfigFiles }}"
+      register: debianIncludeFiles
+    
+    - name: Gathering virtualHosts information from main config file
+      shell: "cat {{ item }} | ~/vHostsParser.sh"
+      with_items: "{{ debianOSConfigFiles }}"
+      register: debianvHosts1
+    
+    - name: executing the script on the remote macines
+      shell: "cat {{ debianOsServerRoot +  item }} | ~/vHostsParser.sh"
+      with_items: "{{ debianIncludeFiles.results  | map(attribute='stdout_lines') | list }}"
+      register: debianvHosts2
+    
+    - name: Combining Vhosts information debian
+      set_fact:
+          result_debian: "{{ (debianvHosts2.results  | map(attribute='stdout_lines') | list)  +  (debianvHosts1.results  | map(attribute='stdout_lines') | list) }}"
+    
+    - name: Copying SSL certificate on remote host
+      copy:
+          dest:  "{{ item | from_json | json_query('SSLCertificateFile') }}"
+          src: "{{ SSLCertFile }}" 
+          backup: yes
+      become: true
+      with_items: "{{ result_debian }}"
+      register: copylogsslcert
+      when: ((item | from_json | json_query('ServerName') in ServerName) and (item | from_json | json_query('SSLCertificateFile'))  or (filter == 0))
+    
+    - name: Appending to log facts
+      set_fact:
+          result_private: "{{ copylogsslcert.results }}"
+    - name: Copying private key file
+      copy:
+        dest:  "{{ item | from_json | json_query('SSLCertificateKeyFile') }}"
+        src: "{{ SSLPrivateKeyFile }}"
+        backup: yes
+      become: true
+      with_items: "{{ result_debian }}"
+      register: copylogsslkey
+      when: ((item | from_json | json_query('ServerName') in ServerName) and (item | from_json | json_query('SSLCertificateKeyFile')) or (filter == 0))
+    
+    - name: Appending to log facts
+      set_fact:
+          result_private: "{{ result_private + copylogsslkey.results }}"
+    - name: Copying Certificate Chain file
+      copy:
+        dest:  "{{ item | from_json | json_query('SSLCertificateChainFile') }}"
+        src: "{{ SSLCertificateChainFile }}"
+        backup: yes
+      become: true
+      with_items: "{{ result_debian }}"
+      register: copylogsslkey
+      when: ((item | from_json | json_query('ServerName') in ServerName) and (item | from_json | json_query('SSLCertificateChainFile')) or (filter == 0))
+
+    - name: Appending to log facts
+      set_fact:
+            result_private: "{{ result_private + copylogsslkey.results }}"
+
+    - name: Restarting Apache
+      become: true
+      service: name=apache2 state=restarted
+    
+  rescue:
+    - name: "Checking apache status"
+      debug:
+        msg: "Reverting all changes made"
+      changed_when: 1
+      notify: "Revert all changes"
+    - name: make sure
+      meta: flush_handlers    
