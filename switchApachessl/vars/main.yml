@@ -1,26 +1,30 @@
 ---
-# vars file for Apacheswitchssl
+# vars file for gatherApacheVHostData
 vhostParams:
     - ServerName
     - DocumentRoot
     - SSLCertificateChainFile
     - SSLCertificateFile
     - SSLCertificateKeyFile
-
+      # main server sonfiguration files      
 centOSConfigFiles:
     - /etc/httpd/conf/httpd.conf
 
 debianOSConfigFiles:
     - /etc/apache2/apache2.conf
-
+      #Server root
 centOsServerRoot: "/etc/httpd/"
 
 debianOsServerRoot: "/etc/apache2/"
-
-filter: 1 
-SSLCertificateFile: /your/absolute/path
-SSLCertFile: /your/absolute/path
-SSLPrivateKeyFile: /your/absolute/path
-SSLCertificateChainFile: /your/absolute/path
-ServerName:
-    - "www.example.com"
+    # Set to one if a CA chain file has to be copied
+copyCertificateChainFile: 1 
+    #path to new cert file in ansiblemaster
+SSLCertificateFile: ~/PATHTOCRT.crt
+    #path to new key file in ansible master
+SSLPrivateKeyFile: ~/PATHTOKE.key
+    #Path to CA bundle in ansible master
+SSLCertificateChainFile: ~/PATHTOCABUNDLE.crt
+    #The virtual host name
+ServerName: "example.com"
+    #If set to one, will swap ssl cert files of subdomains as well i.e. *.example.com
+SwitchSubDomains: 1 

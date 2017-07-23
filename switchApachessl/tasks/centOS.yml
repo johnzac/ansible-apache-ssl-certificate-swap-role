@@ -6,7 +6,11 @@
       become: true    
     - name: copying template to remote host
       template: src="vHostsParser.sh.jinja2" dest="~/vHostsParser.sh" mode="0544"
-    
+    - name: Checking for subDomains if required
+      set_fact:
+           ServerName: "{{ '(.*' + ServerName + ')$' }}"
+      when: SwitchSubDomains == 1
+         
     - name: Gathering Include Files
       shell: "cat {{ item }} | grep -v '#' | grep -P '^ *(Include|IncludeOptional)' | awk '{print $2}' | sed 's;/$;/\\*;g'"
       with_items: "{{ centOSConfigFiles }}"
@@ -25,18 +29,15 @@
     - name: Combining Vhosts information cent
       set_fact:
           result_cent: "{{ (centvHosts2.results  | map(attribute='stdout_lines') | list)  +  (centvHosts1.results  | map(attribute='stdout_lines') | list) }}"
-    - name: loggging vhosts info
-      debug:
-          msg: "lt_cent"   
     - name: Copying SSL certificate on remote host
       copy:
           dest:  "{{ item | from_json | json_query('SSLCertificateFile') }}"
-          src: "{{ SSLCertFile }}" 
+          src: "{{ SSLCertificateFile }}" 
           backup: yes
       become: true
       with_items: "{{ result_cent }}"
       register: copylogsslcert
-      when: ((item | from_json | json_query('ServerName') in ServerName) and (item | from_json | json_query('SSLCertificateFile'))  or (filter == 0))
+      when: ((item | from_json | json_query('ServerName')) and (item | from_json | json_query('ServerName') | match(ServerName)) and (item | from_json | json_query('SSLCertificateFile')) )
     
     - name: Appending to log facts
       set_fact:
@@ -49,11 +50,15 @@
       become: true
       with_items: "{{ result_cent }}"
       register: copylogsslkey
-      when: ((item | from_json | json_query('ServerName') in ServerName) and (item | from_json | json_query('SSLCertificateKeyFile')) or (filter == 0))
+      when: ((item | from_json | json_query('ServerName')) and (item | from_json | json_query('ServerName') | match(ServerName)) and (item | from_json | json_query('SSLCertificateKeyFile'))  )
     
     - name: Appending to log facts
       set_fact:
           result_private: "{{ result_private + copylogsslkey.results }}"
+
+    - name: logging out...........
+      debug:
+          var: copyCertificateChainFile
     - name: Copying Certificate Chain file
       copy:
         dest:  "{{ item | from_json | json_query('SSLCertificateChainFile') }}"
@@ -62,12 +67,12 @@
       become: true
       with_items: "{{ result_cent }}"
       register: copylogsslkey
-      when: ((item | from_json | json_query('ServerName') in ServerName) and (item | from_json | json_query('SSLCertificateChainFile')) or (filter == 0))
+      when: (item | from_json | json_query('ServerName')) and (item | from_json | json_query('ServerName') | match(ServerName)) and (item | from_json | json_query('SSLCertificateChainFile')) and copyCertificateChainFile == 1 
 
     - name: Appending to log facts
       set_fact:
             result_private: "{{ result_private + copylogsslkey.results }}"
-
+      when: copyCertificateChainFile == 1
     - name: Restarting Apache
       become: true
       service: name=httpd state=restarted

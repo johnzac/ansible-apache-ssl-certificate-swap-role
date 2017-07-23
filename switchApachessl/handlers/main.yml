@@ -1,6 +1,6 @@
 ---
 # handlers file for gatherApacheVHostData
-- name: Revert all changes
+- name: Revert all changes debian
   copy:
      dest: "{{ item['dest'] }}"
      src: "{{ item['backup_file'] }}"
@@ -8,7 +8,7 @@
   become: true
   with_items: "{{ result_private }}"
   when: item['dest'] is defined and item['backup_file'] is defined 
-  listen: "Revert all changes"
+  listen: "Revert all changes debian"
   notify: start apache2
 
 - name: Revert all changes CentOS
@@ -19,13 +19,13 @@
   become: true
   with_items: "{{ result_private }}"
   when: item['dest'] is defined and item['backup_file'] is defined 
-  listen: "Revert all changes"
+  listen: "Revert all changes CentOS"
   notify: start httpd
 
 - name: Making sure apache is running 
   become: true
   service: name=apache2 state=started
-  listen: start apache
+  listen: start apache2
 
 - name: Making sure httpd is running
   become: true
