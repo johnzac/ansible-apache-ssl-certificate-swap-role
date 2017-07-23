@@ -1,38 +1,49 @@
 Role Name
 =========
 
-A brief description of the role goes here.
+A role to swap apache virtual host ssl certificates with new ones. The role will automatically check all included files within apache configuration, parse the files for virtual hosts definitions and replace ssl keys corresponing to the ServerName specified as an argument in vars file. If the role fails to start apache after swapping the keys, it will automatically restore the old keys to the remote host and try restarting apache. It can be configured to match all subdomains as well from the var file.
 
 Requirements
 ------------
-
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
+None as such. If the remote machine is running cent os, the role will make sure SElinux puthon wrappers are installed in the remote host since they are required for using the file copy module.
 
 Role Variables
 --------------
+vhostParams:
+     Could be left as it is in the default vars/main.yml. It secifies the parameters to be fetched from each virtual host in the remote machine. You can add extra variables if you would like to see them as output.
+centOSConfigFiles:
+     The default configuration file if the remote machine runs centOS or Redhat. The default value would work for most cases.
+debianOSConfigFiles:
+       The default configuration file if the remote machine runs Debian or Ubuntu. The default value would work for most cases.
+centOsServerRoot:
+         The apache server root. The role will search for other included files from within this directory. The default would work for most servers.
+debianOsServerRoot:
+           The apache server root. The role will search for other included files from within this directory. The default would work for most servers.
+copyCertificateChainFile:
+        Set this to 1 if you have a CA budle file you'd like copied to the remote host. Note that this role will not automatically alter the virtual hosts to serve a chain file if one is not already configured, it merely replaces the file if one already exists.
+SSLCertificateFile:
+        Path to ssl certificate file within the local system.
+SSLPrivateKeyFile:
+         Path to ssl private key file within the local system.
+SSLCertificateChainFile:
+          Path to CA bundle within local system. Will only be considered if copyCertificateChainFile set to 1
+ServerName:
+          The server name whose certificates are to be swapped with new ones.
+SwitchSubDomains:
+            If set to 1, the role will replace ssl keys of subdomains as well( If they are saved in different locations). To be used if you are using a wildcard ssl certificate.
 
-A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
 
-Dependencies
-------------
-
-A list of other roles hosted on Galaxy should go here, plus any details in regards to parameters that may need to be set for other roles, or variables that are used from other roles.
 
 Example Playbook
 ----------------
 
-Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
 
-    - hosts: servers
-      roles:
-         - { role: username.rolename, x: 42 }
+hosts: vagrantServersLocal
+roles:
+      - switchApachessl
 
 License
 -------
 
 BSD
 
-Author Information
-------------------
-
-An optional section for the role authors to include contact information, or a website (HTML is not allowed).
